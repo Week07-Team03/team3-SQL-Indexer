@@ -72,6 +72,8 @@ static void print_help(void) {
     printf("SELECT id, name FROM users WHERE id = 10;\n");
     printf("SELECT * FROM users WHERE name = 'alice';\n");
     printf("SELECT * FROM users WHERE id BETWEEN 10 AND 20;\n");
+    printf("select * from users Where 10 <= id AND age < 30;\n");
+    printf("SELECT * FROM users WHERE id = 1 OR name = 'alice';\n");
 }
 
 /* 점으로 시작하는 메타 명령을 처리하고 계속 실행할지 반환한다. */
@@ -144,7 +146,7 @@ void run_cli(void) {
         }
 
         if (!parse_query(statement, &query)) {
-            printf("syntax error\n");
+            printf("error: %s\n", parser_get_error());
             continue;
         }
         execute_query(&query);

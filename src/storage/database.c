@@ -73,9 +73,29 @@ static int matches_numeric_condition(int actual_value, ConditionType condition_t
     return 0;
 }
 
+static void get_query_condition(const Query *query, int index, QueryCondition *condition) {
+    if (query->condition_count > 0) {
+        *condition = query->conditions[index];
+        return;
+    }
+
+    memset(condition, 0, sizeof(*condition));
+    condition->type = query->condition_type;
+    condition->int_value = query->condition_int_value;
+    condition->second_int_value = query->condition_second_int_value;
+    snprintf(condition->text_value, sizeof(condition->text_value), "%s", query->condition_text_value);
+}
+
+static int query_condition_count(const Query *query) {
+    if (query->condition_count > 0) {
+        return query->condition_count;
+    }
+    return query->condition_type == CONDITION_NONE ? 0 : 1;
+}
+
 /* 주어진 조건이 특정 row에 일치하는지 판단한다. */
-static int row_matches_condition(const UserRow *row, const Query *query) {
-    switch (query->condition_type) {
+static int row_matches_condition(const UserRow *row, const QueryCondition *condition) {
+    switch (condition->type) {
         case CONDITION_NONE:
             return 1;
         case CONDITION_ID_EQ:
@@ -84,28 +104,123 @@ static int row_matches_condition(const UserRow *row, const Query *query) {
         case CONDITION_ID_GT:
         case CONDITION_ID_GTE:
             return matches_numeric_condition(row->id,
-                                             query->condition_type,
-                                             query->condition_int_value);
+                                             condition->type,
+                                             condition->int_value);
         case CONDITION_NAME_EQ:
-            return strcmp(row->name, query->condition_text_value) == 0;
+            return strcmp(row->name, condition->text_value) == 0;
         case CONDITION_AGE_EQ:
         case CONDITION_AGE_LT:
         case CONDITION_AGE_LTE:
         case CONDITION_AGE_GT:
         case CONDITION_AGE_GTE:
             return matches_numeric_condition(row->age,
-                                             query->condition_type,
-                                             query->condition_int_value);
+                                             condition->type,
+                                             condition->int_value);
         case CONDITION_ID_RANGE:
-            return row->id >= query->condition_int_value &&
-                   row->id <= query->condition_second_int_value;
+            return row->id >= condition->int_value &&
+                   row->id <= condition->second_int_value;
     }
 
     return 0;
 }
 
+static int row_matches_query(const UserRow *row, const Query *query) {
+    QueryCondition condition;
+    int condition_count = query_condition_count(query);
+    int result;
+    int group_result;
+    int i;
+
+    if (condition_count == 0) {
+        return 1;
+    }
+
+    get_query_condition(query, 0, &condition);
+    group_result = row_matches_condition(row, &condition);
+    result = 0;
+
+    for (i = 1; i < condition_count; i++) {
+        get_query_condition(query, i, &condition);
+        if (query->condition_operators[i - 1] == LOGICAL_AND) {
+            group_result = group_result && row_matches_condition(row, &condition);
+        } else {
+            result = result || group_result;
+            group_result = row_matches_condition(row, &condition);
+        }
+    }
+    return result || group_result;
+}
+
+static int condition_uses_id_index(const QueryCondition *condition) {
+    return condition->type == CONDITION_ID_EQ ||
+           condition->type == CONDITION_ID_LT ||
+           condition->type == CONDITION_ID_LTE ||
+           condition->type == CONDITION_ID_GT ||
+           condition->type == CONDITION_ID_GTE ||
+           condition->type == CONDITION_ID_RANGE;
+}
+
+static int find_index_condition(const Query *query, QueryCondition *condition) {
+    QueryCondition current;
+    int condition_count = query_condition_count(query);
+    int found = 0;
+    int i;
+
+    for (i = 0; i < condition_count; i++) {
+        if (i > 0 && query->condition_operators[i - 1] != LOGICAL_AND) {
+            return 0;
+        }
+        get_query_condition(query, i, &current);
+        if (!found && condition_uses_id_index(&current)) {
+            *condition = current;
+            found = 1;
+        }
+    }
+    return found;
+}
+
+static int id_condition_bounds(const QueryCondition *condition, int *start_id, int *end_id) {
+    switch (condition->type) {
+        case CONDITION_ID_EQ:
+            *start_id = condition->int_value;
+            *end_id = condition->int_value;
+            return 1;
+        case CONDITION_ID_RANGE:
+            *start_id = condition->int_value;
+            *end_id = condition->second_int_value;
+            return 1;
+        case CONDITION_ID_LT:
+            *start_id = 1;
+            *end_id = condition->int_value <= 1 ? 0 : condition->int_value - 1;
+            return 1;
+        case CONDITION_ID_LTE:
+            *start_id = 1;
+            *end_id = condition->int_value < 1 ? 0 : condition->int_value;
+            return 1;
+        case CONDITION_ID_GT:
+            if (condition->int_value == INT_MAX) {
+                *start_id = 1;
+                *end_id = 0;
+            } else {
+                *start_id = condition->int_value < 1 ? 1 : condition->int_value + 1;
+                *end_id = INT_MAX;
+            }
+            return 1;
+        case CONDITION_ID_GTE:
+            *start_id = condition->int_value <= 1 ? 1 : condition->int_value;
+            *end_id = INT_MAX;
+            return 1;
+        default:
+            return 0;
+    }
+}
+
 /* id 범위 조건을 B+ 트리로 조회해 결과 버퍼에 추가한다. */
-static int append_index_range(const Database *database, QueryResult *result, int start_id, int end_id) {
+static int append_index_range(const Database *database,
+                              const Query *query,
+                              QueryResult *result,
+                              int start_id,
+                              int end_id) {
     int *row_indices = NULL;
     size_t row_count = 0;
     size_t i;
@@ -118,7 +233,9 @@ static int append_index_range(const Database *database, QueryResult *result, int
         return 0;
     }
     for (i = 0; i < row_count; i++) {
-        if (!query_result_append(result, &database->rows[row_indices[i]])) {
+        const UserRow *row = &database->rows[row_indices[i]];
+
+        if (row_matches_query(row, query) && !query_result_append(result, row)) {
             free(row_indices);
             free_query_result(result);
             return 0;
@@ -278,8 +395,9 @@ int database_load_from_file(Database *database, const char *data_path) {
 /* 조건에 따라 인덱스를 활용해 SELECT 조회를 수행한다. */
 int database_select_users(const Database *database, const Query *query, QueryResult *result) {
     size_t i;
-    int row_index;
+    QueryCondition index_condition;
     int start_id;
+    int end_id;
 
     if (database == NULL || query == NULL || result == NULL) {
         return 0;
@@ -287,50 +405,13 @@ int database_select_users(const Database *database, const Query *query, QueryRes
 
     memset(result, 0, sizeof(QueryResult));
 
-    if (query->condition_type == CONDITION_ID_EQ) {
-        result->used_index = 1;
-        if (bptree_search(&database->primary_index, query->condition_int_value, &row_index)) {
-            return query_result_append(result, &database->rows[row_index]);
-        }
-        return 1;
-    }
-
-    if (query->condition_type == CONDITION_ID_RANGE) {
-        return append_index_range(database,
-                                  result,
-                                  query->condition_int_value,
-                                  query->condition_second_int_value);
-    }
-
-    if (query->condition_type == CONDITION_ID_LT) {
-        if (query->condition_int_value <= 1) {
-            return append_index_range(database, result, 1, 0);
-        }
-        return append_index_range(database, result, 1, query->condition_int_value - 1);
-    }
-
-    if (query->condition_type == CONDITION_ID_LTE) {
-        if (query->condition_int_value < 1) {
-            return append_index_range(database, result, 1, 0);
-        }
-        return append_index_range(database, result, 1, query->condition_int_value);
-    }
-
-    if (query->condition_type == CONDITION_ID_GT) {
-        if (query->condition_int_value == INT_MAX) {
-            return append_index_range(database, result, 1, 0);
-        }
-        start_id = query->condition_int_value < 1 ? 1 : query->condition_int_value + 1;
-        return append_index_range(database, result, start_id, INT_MAX);
-    }
-
-    if (query->condition_type == CONDITION_ID_GTE) {
-        start_id = query->condition_int_value <= 1 ? 1 : query->condition_int_value;
-        return append_index_range(database, result, start_id, INT_MAX);
+    if (find_index_condition(query, &index_condition) &&
+        id_condition_bounds(&index_condition, &start_id, &end_id)) {
+        return append_index_range(database, query, result, start_id, end_id);
     }
 
     for (i = 0; i < database->row_count; i++) {
-        if (row_matches_condition(&database->rows[i], query) &&
+        if (row_matches_query(&database->rows[i], query) &&
             !query_result_append(result, &database->rows[i])) {
             free_query_result(result);
             return 0;

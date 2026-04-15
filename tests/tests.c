@@ -72,6 +72,14 @@ static void test_parse_select_conditions(void) {
     assert(query.condition_type == CONDITION_ID_GTE);
     assert(query.condition_int_value == 7);
 
+    assert(parse_query("select ID, Name from USERS Where 7 <= id;", &query));
+    assert(strcmp(query.table_name, "users") == 0);
+    assert(query.selected_column_count == 2);
+    assert(strcmp(query.selected_columns[0], "id") == 0);
+    assert(strcmp(query.selected_columns[1], "name") == 0);
+    assert(query.condition_type == CONDITION_ID_GTE);
+    assert(query.condition_int_value == 7);
+
     assert(parse_query("SELECT * FROM users WHERE id>=7;", &query));
     assert(query.condition_type == CONDITION_ID_GTE);
     assert(query.condition_int_value == 7);
@@ -79,6 +87,38 @@ static void test_parse_select_conditions(void) {
     assert(parse_query("SELECT * FROM users WHERE age < 30;", &query));
     assert(query.condition_type == CONDITION_AGE_LT);
     assert(query.condition_int_value == 30);
+
+    assert(parse_query("SELECT * FROM users WHERE 30 > age;", &query));
+    assert(query.condition_type == CONDITION_AGE_LT);
+    assert(query.condition_int_value == 30);
+
+    assert(parse_query("SELECT * FROM users WHERE 'alice' = name;", &query));
+    assert(query.condition_type == CONDITION_NAME_EQ);
+    assert(strcmp(query.condition_text_value, "alice") == 0);
+
+    assert(parse_query("SELECT * FROM users WHERE id >= 7 AND age < 30;", &query));
+    assert(query.condition_count == 2);
+    assert(query.condition_operators[0] == LOGICAL_AND);
+    assert(query.conditions[0].type == CONDITION_ID_GTE);
+    assert(query.conditions[1].type == CONDITION_AGE_LT);
+
+    assert(parse_query("SELECT * FROM users WHERE id BETWEEN 3 AND 9 AND age < 30;", &query));
+    assert(query.condition_count == 2);
+    assert(query.condition_operators[0] == LOGICAL_AND);
+    assert(query.conditions[0].type == CONDITION_ID_RANGE);
+    assert(query.conditions[1].type == CONDITION_AGE_LT);
+
+    assert(parse_query("SELECT * FROM users WHERE name = 'alice' OR 30 > age;", &query));
+    assert(query.condition_count == 2);
+    assert(query.condition_operators[0] == LOGICAL_OR);
+    assert(query.conditions[0].type == CONDITION_NAME_EQ);
+    assert(query.conditions[1].type == CONDITION_AGE_LT);
+
+    assert(!parse_query("SELECT * users;", &query));
+    assert(strcmp(parser_get_error(), "SELECT is missing FROM") == 0);
+
+    assert(!parse_query("SELECT email FROM users;", &query));
+    assert(strcmp(parser_get_error(), "unknown column in SELECT list") == 0);
 }
 
 /* 인덱스 조회, 범위 조회, 선형 스캔 동작을 확인한다. */
@@ -182,6 +222,30 @@ static void test_database_index_and_linear_scan(void) {
     assert(result.row_count == 4);
     assert(result.rows[0]->id == 253);
     assert(result.rows[3]->id == 256);
+    free_query_result(&result);
+
+    assert(parse_query("SELECT * FROM users WHERE id >= 250 AND age < 23;", &query));
+    assert(database_select_users(database, &query, &result));
+    assert(result.used_index == 1);
+    assert(result.row_count == 3);
+    assert(result.rows[0]->id == 251);
+    assert(result.rows[2]->id == 253);
+    free_query_result(&result);
+
+    assert(parse_query("SELECT * FROM users WHERE id BETWEEN 250 AND 256 AND age < 23;", &query));
+    assert(database_select_users(database, &query, &result));
+    assert(result.used_index == 1);
+    assert(result.row_count == 3);
+    assert(result.rows[0]->id == 251);
+    assert(result.rows[2]->id == 253);
+    free_query_result(&result);
+
+    assert(parse_query("SELECT * FROM users WHERE id = 1 OR id = 256;", &query));
+    assert(database_select_users(database, &query, &result));
+    assert(result.used_index == 0);
+    assert(result.row_count == 2);
+    assert(result.rows[0]->id == 1);
+    assert(result.rows[1]->id == 256);
     free_query_result(&result);
 
     memset(&query, 0, sizeof(query));

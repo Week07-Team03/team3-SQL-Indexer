@@ -22,6 +22,20 @@ typedef enum {
     CONDITION_ID_RANGE
 } ConditionType;
 
+#define MAX_WHERE_CONDITIONS 8
+
+typedef enum {
+    LOGICAL_AND,
+    LOGICAL_OR
+} LogicalOperator;
+
+typedef struct {
+    ConditionType type;
+    int int_value;
+    int second_int_value;
+    char text_value[32];
+} QueryCondition;
+
 typedef struct {
     QueryType type;
     char table_name[32];
@@ -36,6 +50,9 @@ typedef struct {
     int condition_int_value;
     int condition_second_int_value;
     char condition_text_value[32];
+    QueryCondition conditions[MAX_WHERE_CONDITIONS];
+    LogicalOperator condition_operators[MAX_WHERE_CONDITIONS - 1];
+    int condition_count;
 } Query;
 
 #endif
