@@ -1,4 +1,4 @@
-# Mini SQL Processor with B+ Tree Index
+# SQL Processor with B+ Tree Index
 
 기존 C 기반 SQL 처리기에 `users.id`용 메모리 기반 B+ 트리 인덱스를 연결한 프로젝트입니다.  
 핵심 목표는 `INSERT -> 자동 ID 부여 -> 인덱스 등록 -> ID 기반 SELECT 가속` 흐름을 구현하고, 대용량 데이터에서 인덱스 경로와 선형 탐색 경로의 차이를 검증하는 것입니다.
