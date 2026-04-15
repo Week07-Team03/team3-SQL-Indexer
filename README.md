@@ -39,7 +39,6 @@ SQL은 사용자가 데이터를 질의하는 언어이고, 인덱스는 그 질
 | `SELECT` | 조건과 관계없이 full scan | `id =, <, <=, >, >=, BETWEEN`, `id`가 포함된 `AND`는 B+ Tree 사용 |
 | 복합 조건 | full scan | `AND`는 먼저 인덱스로 후보 축소 후 후처리, `OR`는 full scan |
 
-발표용으로 한 줄만 보면:
 
 ```text
 기존: SQL -> Parser -> Executor -> Full Scan
