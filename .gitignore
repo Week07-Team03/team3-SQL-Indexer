@@ -1,0 +1,5 @@
+/build/
+/mini_sql
+/mini_sql_tests
+/mini_sql_local
+/scripts/__pycache__/

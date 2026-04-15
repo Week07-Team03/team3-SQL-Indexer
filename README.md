@@ -1,381 +1,70 @@
 # Mini SQL Processor
 
-C·Î ¸¸µç ÇĞ½À¿ë mini SQL processorÀÔ´Ï´Ù. ¸ñÀûÀº ¹ü¿ë DBMS¸¦ ¸¸µå´Â °ÍÀÌ ¾Æ´Ï¶ó, `parser -> executor -> storage/display` Èå¸§À» ÀÛÀº ÄÚµåº£ÀÌ½º ¾È¿¡¼­ ³¡±îÁö µû¶ó°¥ ¼ö ÀÖ°Ô ¸¸µå´Â °ÍÀÔ´Ï´Ù.
+`users` í…Œì´ë¸” í•˜ë‚˜ë¥¼ ëŒ€ìƒìœ¼ë¡œ ë™ì‘í•˜ëŠ” ì‘ì€ C ê¸°ë°˜ SQL ì—”ì§„ì…ë‹ˆë‹¤. ëª©í‘œëŠ” ê¸°ëŠ¥ì„ ë§ì´ ë„£ëŠ” ê²ƒë³´ë‹¤ `parser -> executor -> storage -> display` íë¦„ê³¼ B+ íŠ¸ë¦¬ ì¸ë±ìŠ¤ êµ¬ì¡°ë¥¼ ì½ê¸° ì‰½ê²Œ ìœ ì§€í•˜ëŠ” ë° ìˆìŠµë‹ˆë‹¤.
 
-ÇöÀç Áö¿ø ¹üÀ§´Â ÀÇµµÀûÀ¸·Î ÀÛ½À´Ï´Ù.
-
-- `INSERT INTO users VALUES (id, 'name', age);`
-- `SELECT * FROM users;`
-- `SELECT id, name FROM users;`
-- REPL CLI: `.help`, `.tables`, `.schema users`, `.exit`
-
-Áö¿øÇÏÁö ¾Ê´Â ±â´ÉÀº ³ÖÁö ¾Ê¾Ò½À´Ï´Ù.
-
-- `CREATE TABLE`
-- `WHERE`, `JOIN`, `ORDER BY`, `GROUP BY`
-- `UPDATE`, `DELETE`
-- Á¤½Ä AST °èÃş
-- ¹ü¿ë tokenizer / lexer
-
-## Why This Project Exists
-
-ÀÌ ÇÁ·ÎÁ§Æ®ÀÇ ÇÙ½ÉÀº ¼¼ °¡ÁöÀÔ´Ï´Ù.
-
-1. SQL ¹®ÀÚ¿­ÀÌ ¾î¶»°Ô ±¸Á¶È­µÈ µ¥ÀÌÅÍ·Î ¹Ù²î´ÂÁö ÀÌÇØÇÏ±â
-2. ½ÇÇà ºĞ±â¸¦ `main`ÀÌ ¾Æ´Ï¶ó º°µµ executor ·¹ÀÌ¾î·Î ºĞ¸®ÇÏ´Â ÀÌÀ¯ ÀÌÇØÇÏ±â
-3. ÆÄÀÏ ±â¹İ ÀúÀå¼Ò¸¦ ÀÛÀº DBÃ³·³ ´Ù·ç´Â Èå¸§ ÀÌÇØÇÏ±â
-
-Áï, "ÀÛÁö¸¸ ³¡±îÁö µ¿ÀÛÇÏ´Â SQL Ã³¸®±â"¸¦ Á÷Á¢ ÀĞÀ» ¼ö ÀÖ°Ô ¸¸µå´Â °ÍÀÌ ¸ñÇ¥ÀÔ´Ï´Ù.
-
-## Project Structure
+## Layout
 
 ```text
-mini-SQL/
-¦§¦¡¦¡ main.c        # ÇÁ·Î±×·¥ ½ÃÀÛÁ¡, CLI ½ÃÀÛ¸¸ ´ã´ç
-¦§¦¡¦¡ cli.c/h       # REPL ÀÔ·Â, ¸ŞÅ¸ ¸í·É Ã³¸®, parser/executor ¿¬°á
-¦§¦¡¦¡ parser.c/h    # SQL ¹®ÀÚ¿­ -> Query ±¸Á¶Ã¼ º¯È¯
-¦§¦¡¦¡ executor.c/h  # QueryType ±âÁØ ½ÇÇà ºĞ±â
-¦§¦¡¦¡ storage.c/h   # schema/data ÆÄÀÏ ÀĞ±â/¾²±â
-¦§¦¡¦¡ display.c/h   # SELECT °á°ú¸¦ ASCII table·Î Ãâ·Â
-¦§¦¡¦¡ query.h       # QueryType, Query ±¸Á¶Ã¼ Á¤ÀÇ
-¦§¦¡¦¡ users.schema  # users Å×ÀÌºí ½ºÅ°¸¶
-¦¦¦¡¦¡ users.data    # users Å×ÀÌºí µ¥ÀÌÅÍ
+.
+|-- data/         # users.schema, users.data
+|-- docs/         # ì„¤ê³„/ì¸ë±ìŠ¤ ë¬¸ì„œ
+|-- examples/     # ì˜ˆì œ SQL
+|-- include/      # ê³µê°œ í—¤ë”
+|-- scripts/      # ë³´ì¡° ìŠ¤í¬ë¦½íŠ¸
+|-- src/
+|   |-- app/      # main, CLI
+|   |-- core/     # parser, executor, display
+|   |-- index/    # B+ tree
+|   `-- storage/  # íŒŒì¼ ë¡œë”©, ë©”ëª¨ë¦¬ DB, benchmark
+`-- tests/        # ë‹¨ìœ„ í…ŒìŠ¤íŠ¸
 ```
-
-## Diagram Conventions
-
-ÀÌ READMEÀÇ ´ÙÀÌ¾î±×·¥Àº ¿ªÇÒº°·Î ³ª´²¼­ ºÁ¾ß ÇÕ´Ï´Ù.
-
-- `Architecture Flow`: Á¦¾î Èå¸§ Áß½ÉÀÇ ÀÏ¹İÀûÀÎ ÇÃ·Î¿ìÂ÷Æ®ÀÔ´Ï´Ù.
-- `Data Flow View`: ¾î¶² µ¥ÀÌÅÍ°¡ ¾îµğ¼­ ¾îµğ·Î ÀÌµ¿ÇÏ´ÂÁö º¸¿©ÁÖ´Â µ¥ÀÌÅÍ Èå¸§µµÀÔ´Ï´Ù.
-- `Query Lifecycle`: ·±Å¸ÀÓ È£Ãâ ¼ø¼­¸¦ º¸¿©ÁÖ´Â ½ÃÄö½º ´ÙÀÌ¾î±×·¥ÀÔ´Ï´Ù.
-
-Ç¥Çö ±ÔÄ¢Àº ¾Æ·¡¿Í °°½À´Ï´Ù.
-
-- ÇÃ·Î¿ìÂ÷Æ®¿¡¼­´Â ÀÔ·Â/Ãâ·ÂÀ» I/O µµÇüÀ¸·Î, Ã³¸® ´Ü°è¸¦ process µµÇüÀ¸·Î, Á¶°Ç ºĞ±â¸¦ decision µµÇüÀ¸·Î Ç¥ÇöÇÕ´Ï´Ù.
-- µ¥ÀÌÅÍ´Â ÇÃ·Î¿ìÂ÷Æ® ³ëµå·Î ¿Ã¸®Áö ¾Ê°í, È­»ìÇ¥ ¶óº§·Î Ç¥ÇöÇÕ´Ï´Ù.
-- `users.schema`, `users.data` °°Àº ÆÄÀÏÀº ¾ÆÅ°ÅØÃ³ ÇÃ·Î¿ì³ª ½ÃÄö½ºÀÇ ½ÇÇà ÁÖÃ¼°¡ ¾Æ´Õ´Ï´Ù.
-- ÆÄÀÏÀ» Ç¥ÇöÇØ¾ß ÇÒ ¶§´Â º°µµÀÇ µ¥ÀÌÅÍ Èå¸§µµ¿¡¼­ data store·Î Ç¥ÇöÇÕ´Ï´Ù.
-- ½ÃÄö½º ´ÙÀÌ¾î±×·¥¿¡´Â ½ÇÁ¦ ·±Å¸ÀÓ¿¡ ¸Ş½ÃÁö¸¦ ÁÖ°í¹Ş´Â ÄÄÆ÷³ÍÆ®¸¸ ³Ö½À´Ï´Ù.
-
-## Architecture Flow
-
-¾Æ·¡ ±×¸²Àº ÀÏ¹İÀûÀÎ ¼¼·ÎÇü ÇÃ·Î¿ìÂ÷Æ® Çü½ÄÀ¸·Î, »ç¿ëÀÚ°¡ ¸í·ÉÀ» ÀÔ·ÂÇÑ µÚ ¾î¶² Á¦¾î Èå¸§À» µû¶ó ½ÇÇàµÇ´ÂÁö¸¦ º¸¿©Áİ´Ï´Ù. ÀÌ ±×¸²Àº "¹«¾ùÀÌ ¸ÕÀú ½ÇÇàµÇ°í ¾îµğ¼­ ºĞ±âµÇ´Â°¡"¸¦ º¸´Â ¿ëµµÀÔ´Ï´Ù.
-
-```mermaid
-flowchart TD
-    A([Start]) --> B[/Read command from CLI/]
-    B --> C[cli.c routes input]
-    C --> D{"Meta command?"}
-    D -- Yes --> E[Handle .help / .tables / .schema / .exit]
-    E --> F[/Print result to terminal/]
-    D -- No --> G[parser.c parses SQL text]
-    G --> H{"Valid SQL?"}
-    H -- No --> I[/Print syntax error/]
-    H -- Yes --> J[executor.c dispatches query]
-    J --> K{"INSERT or SELECT?"}
-    K -- INSERT --> L[storage.c appends row]
-    L --> M[/Print insert result/]
-    K -- SELECT --> N[storage.c loads schema and rows]
-    N --> O[display.c formats result table]
-    O --> P[/Print SELECT result/]
-```
-
-ÀÌ ÇÃ·Î¿ìÂ÷Æ®¿¡´Â ÆÄÀÏÀ» ³ÖÁö ¾Ê¾Ò½À´Ï´Ù. ÆÄÀÏÀº ½ÇÇà ´Ü°è°¡ ¾Æ´Ï¶ó storage°¡ Á¢±ÙÇÏ´Â ¿µ¼Ó ÀÚ¿øÀÌ±â ¶§¹®ÀÔ´Ï´Ù.
-
-## Data Flow View
-
-¾Æ·¡ ±×¸²Àº Á¦¾î Èå¸§ÀÌ ¾Æ´Ï¶ó µ¥ÀÌÅÍ Èå¸§À» º¸¿©Áİ´Ï´Ù. ÀÌ ±×¸²Àº "¾î¶² µ¥ÀÌÅÍ°¡ ¾î¶² ÄÄÆ÷³ÍÆ®¸¦ Áö³ª°í, ¾î¶² ÆÄÀÏ¿¡ ÀúÀåµÇ°Å³ª ÆÄÀÏ¿¡¼­ ÀĞÈ÷´Â°¡"¸¦ º¸´Â ¿ëµµÀÔ´Ï´Ù.
-
-```mermaid
-flowchart LR
-    U["User"]
-    C(("CLI"))
-    P(("Parser"))
-    E(("Executor"))
-    S(("Storage"))
-    D(("Display"))
-    SCH[("users.schema")]
-    DAT[("users.data")]
-
-    U -->|"command text"| C
-    C -->|"SQL text"| P
-    P -->|"Query struct"| E
-    C -->|"meta command"| S
-    E -->|"append request / read request"| S
-    S -->|"schema metadata"| E
-    S -->|"row data"| D
-    D -->|"formatted table"| U
-    S -->|"status text / schema text / table list"| U
-    SCH -->|"schema definition"| S
-    DAT -->|"stored rows"| S
-    S -->|"append row"| DAT
-```
-
-ÇÙ½É ÇØ¼®Àº ÀÌ·¸½À´Ï´Ù.
-
-- `Query struct`´Â parser°¡ ¸¸µç Áß°£ °á°ú µ¥ÀÌÅÍÀÔ´Ï´Ù.
-- `schema metadata`´Â `users.schema`¿¡¼­ ÀĞÀº ÄÃ·³ ÀÌ¸§/Å¸ÀÔ Á¤º¸ÀÔ´Ï´Ù.
-- `row data`´Â `users.data`¿¡¼­ ÀĞÀº ½ÇÁ¦ row °ªÀÔ´Ï´Ù.
-- `formatted table`Àº display°¡ ÃÖÁ¾ Ãâ·Â ¹®ÀÚ¿­·Î ¹Ù²Û °á°úÀÔ´Ï´Ù.
-
-## Query Lifecycle
-
-¾Æ·¡ ½ÃÄö½º ´ÙÀÌ¾î±×·¥Àº ·±Å¸ÀÓ¿¡ ½ÇÁ¦·Î ¾î¶² ÇÔ¼ö °èÃşÀÌ È£ÃâµÇ´ÂÁö¸¦ º¸¿©Áİ´Ï´Ù. ÀÌ ±×¸²Àº "È£Ãâ ¼ø¼­"¸¦ º¸´Â ¿ëµµÀÔ´Ï´Ù.
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant CLI as cli.c
-    participant Parser as parser.c
-    participant Executor as executor.c
-    participant Storage as storage.c
-    participant Display as display.c
-
-    User->>CLI: SQL ÀÔ·Â
-    CLI->>Parser: parse_query(sql, &query)
-    Parser-->>CLI: Query
-    CLI->>Executor: execute_query(&query)
-
-    alt INSERT
-        Executor->>Storage: append_user(&query)
-        Storage-->>Executor: success / fail
-        Executor-->>CLI: execution result
-        CLI-->>User: insert result displayed
-    else SELECT
-        Executor->>Storage: load_schema(table)
-        Storage-->>Executor: TableSchema
-        Executor->>Storage: load_rows(table)
-        Storage-->>Executor: TableData
-        Executor->>Display: print_select_result(query, schema, data)
-        Display-->>CLI: formatted output
-        CLI-->>User: result displayed
-    end
-```
-
-¸ŞÅ¸ ¸í·ÉÀº ÀÌ ½ÃÄö½ºº¸´Ù Âª½À´Ï´Ù. ¿¹¸¦ µé¾î `.tables`¿Í `.schema users`´Â parser¿Í executor¸¦ °ÅÄ¡Áö ¾Ê°í `cli -> storage -> cli` Èå¸§À¸·Î Ã³¸®µË´Ï´Ù.
-
-## Core Data Model
-
-`query.h`ÀÇ `Query` ±¸Á¶Ã¼´Â ÇöÀç ÇÁ·ÎÁ§Æ®ÀÇ Áß°£ Ç¥ÇöÀÔ´Ï´Ù.
-
-```c
-typedef struct {
-    QueryType type;
-    char table_name[32];
-    int id;
-    char name[32];
-    int age;
-    int select_all;
-    char selected_columns[3][32];
-    int selected_column_count;
-} Query;
-```
-
-Áö±İÀº Á¤½Ä AST¸¦ µµÀÔÇÏÁö ¾Ê°í `Query` ±¸Á¶Ã¼¸¦ À¯ÁöÇÕ´Ï´Ù. ÀÌÀ¯´Â ÇöÀç Áö¿ø ¹®¹ıÀÌ ÀÛ¾Æ¼­ AST°¡ ¿À¹ö½ºÆåÀÌ±â ¶§¹®ÀÔ´Ï´Ù. ´Ù¸¸ `type` Áß½É ±¸Á¶·Î À¯ÁöÇØ µÎ¾ú±â ¶§¹®¿¡, ³ªÁß¿¡ `Query`¸¦ `AstNode`·Î ¹Ù²Ü ¶§µµ `executor`ÀÇ ºĞ±â ±¸Á¶´Â Å« Æ²À» À¯ÁöÇÒ ¼ö ÀÖ½À´Ï´Ù.
-
-## File Responsibilities
-
-### `main.c`
-
-- ÇÁ·Î±×·¥ ½ÃÀÛÁ¡ÀÔ´Ï´Ù.
-- `run_cli()`¸¸ È£ÃâÇÕ´Ï´Ù.
-- ±â´ÉÀÌ ´Ã¾î³ªµµ ¼öÁ¤ÀÌ ÃÖ¼ÒÈ­µÇµµ·Ï ¾ÆÁÖ ÀÛ°Ô À¯ÁöÇÕ´Ï´Ù.
-
-### `cli.c`
-
-- REPL ·çÇÁ¸¦ ´ã´çÇÕ´Ï´Ù.
-- ÇÁ·ÒÇÁÆ® `mini-sql>`¸¦ Ãâ·ÂÇÕ´Ï´Ù.
-- `.help`, `.tables`, `.schema users`, `.exit`¸¦ Ã³¸®ÇÕ´Ï´Ù.
-- SQL ÀÔ·ÂÀº `parse_query()` ÈÄ `execute_query()`·Î ³Ñ±é´Ï´Ù.
-
-### `parser.c`
-
-- SQL ¹®ÀÚ¿­À» `Query` ±¸Á¶Ã¼·Î ¹Ù²ß´Ï´Ù.
-- `INSERT`¿Í `SELECT`¸¸ ÆÄ½ÌÇÕ´Ï´Ù.
-- º°µµ tokenizer ¾øÀÌ `strncmp`, `strstr`, `strtok`, `sscanf`·Î ÃÖ¼Ò ±¸ÇöÇÕ´Ï´Ù.
-
-### `executor.c`
-
-- `QueryType` ±âÁØÀ¸·Î ½ÇÇàÀ» ºĞ±âÇÕ´Ï´Ù.
-- `main`ÀÌ Á÷Á¢ `INSERT/SELECT`¸¦ ºĞ±âÇÏÁö ¾Êµµ·Ï ºĞ¸®ÇÑ ·¹ÀÌ¾îÀÔ´Ï´Ù.
-- ÇöÀç´Â `execute_insert()`¿Í `execute_select()`¸¸ ÀÖ½À´Ï´Ù.
-
-### `storage.c`
-
-- `<table>.schema` ÆÄÀÏÀ» ÀĞ½À´Ï´Ù.
-- `<table>.data` ÆÄÀÏÀ» ÀĞ½À´Ï´Ù.
-- `INSERT` ½Ã row¸¦ append ÇÕ´Ï´Ù.
-- `.tables`, `.schema users` °°Àº CLI ¸ŞÅ¸ ¸í·É¿¡¼­ ÇÊ¿äÇÑ ÀúÀå¼Ò Á¶È¸µµ ´ã´çÇÕ´Ï´Ù.
-
-### `display.c`
-
-- `SELECT` °á°ú¸¦ ASCII table·Î Ãâ·ÂÇÕ´Ï´Ù.
-- ¾î¶² ÄÃ·³À» º¸¿©ÁÙÁö °áÁ¤ÇÕ´Ï´Ù.
-- ÄÃ·³ ÆøÀ» °è»êÇÏ°í border/header/rows¸¦ Ãâ·ÂÇÕ´Ï´Ù.
-
-### `query.h`
-
-- ¿©·¯ ·¹ÀÌ¾î°¡ °øÀ¯ÇÏ´Â °øÅë µ¥ÀÌÅÍ Á¤ÀÇ ÆÄÀÏÀÔ´Ï´Ù.
-- parser°¡ Ã¤¿ì°í, executor°¡ ÀĞ°í, storage/display°¡ ¼ÒºñÇÕ´Ï´Ù.
-
-## Storage Format
-
-### `users.schema`
-
-```text
-id|INT
-name|TEXT
-age|INT
-```
-
-### `users.data`
-
-```text
-1|bumsang|25
-2|alice|30
-```
-
-ÀÌ ÇÁ·ÎÁ§Æ®´Â CSV ´ë½Å `|` ±¸ºĞ Ä¿½ºÅÒ ÅØ½ºÆ® Æ÷¸ËÀ» »ç¿ëÇÕ´Ï´Ù. ÀÌÀ¯´Â ÇĞ½À¿ë ÇÁ·ÎÁ§Æ®¿¡¼­ ÀúÀå Æ÷¸Ë Ã³¸® ±ÔÄ¢±îÁö º¹ÀâÇÏ°Ô °¡Á®°¡Áö ¾Ê±â À§ÇØ¼­ÀÔ´Ï´Ù. ÇöÀç ¸ñÇ¥´Â Ç¥ÁØ µ¥ÀÌÅÍ ±³È¯ Æ÷¸Ëº¸´Ù SQL Ã³¸® ±¸Á¶ ÀÌÇØ¿¡ ÀÖ½À´Ï´Ù.
 
 ## Build
 
-ÇÁ·ÎÁ§Æ® ·çÆ®¿¡¼­ ½ÇÇàÇÕ´Ï´Ù.
-
 ```bash
-gcc -Wall -Wextra -pedantic -std=c11 main.c cli.c parser.c executor.c storage.c display.c -o mini_sql
+make
 ```
+
+ë¹Œë“œ ê²°ê³¼ë¬¼ì€ `build/` ì•„ë˜ì— ìƒì„±ë©ë‹ˆë‹¤.
 
 ## Run
 
 ```bash
-./mini_sql
+./build/mini_sql
+./build/mini_sql --stats
+./build/mini_sql --benchmark 1000000 200
+./build/mini_sql_tests
 ```
 
-½ÇÇàÇÏ¸é REPLÀÌ ½ÃÀÛµË´Ï´Ù.
+ë²¤ì¹˜ë§ˆí¬ ê·¸ë˜í”„ì™€ CSVê°€ í•„ìš”í•˜ë©´ ì•„ë˜ ìŠ¤í¬ë¦½íŠ¸ë¥¼ ì‹¤í–‰í•˜ë©´ ë©ë‹ˆë‹¤.
 
-```text
-mini-sql>
+```bash
+python3 scripts/benchmark_graph.py
 ```
 
-## CLI Commands
+ìƒˆë¡œ ìƒì„±í•œ ì‚°ì¶œë¬¼ì€ `build/benchmark/` ì•„ë˜ì— ìƒì„±ë©ë‹ˆë‹¤. í˜„ì¬ ì €ì¥ì†Œì— í¬í•¨ëœ ê¸°ì¤€ ë²¤ì¹˜ë§ˆí¬ ê²°ê³¼ëŠ” `docs/benchmark/`ì— ë³´ê´€ë©ë‹ˆë‹¤.
 
-### Meta commands
+## Supported SQL
 
-```text
-.help
-.tables
-.schema users
-.exit
-```
+- `INSERT INTO users VALUES ('alice', 23);`
+- `INSERT INTO users VALUES (10, 'alice', 23);`
+- `SELECT * FROM users;`
+- `SELECT id, name FROM users WHERE id = 10;`
+- `SELECT * FROM users WHERE name = 'alice';`
+- `SELECT * FROM users WHERE id BETWEEN 10 AND 20;`
 
-### SQL commands
+ë©”íƒ€ ëª…ë ¹:
 
-```sql
-INSERT INTO users VALUES (1, 'bumsang', 25);
-SELECT * FROM users;
-SELECT id, name FROM users;
-```
+- `.help`
+- `.tables`
+- `.schema users`
+- `.stats`
+- `.benchmark [row_count] [lookup_count]`
+- `.exit`
 
-## Sample Session
+## Notes
 
-```text
-mini-sql> .tables
-users
-mini-sql> .schema users
-id | INT
-name | TEXT
-age | INT
-mini-sql> INSERT INTO users VALUES (1, 'bumsang', 25);
-1 row inserted
-mini-sql> SELECT * FROM users;
-+----+---------+-----+
-| id | name    | age |
-+----+---------+-----+
-| 1  | bumsang | 25  |
-+----+---------+-----+
-mini-sql> SELECT id, name FROM users;
-+----+---------+
-| id | name    |
-+----+---------+
-| 1  | bumsang |
-+----+---------+
-mini-sql> .exit
-```
-
-## Error Handling
-
-¿¡·¯ Ã³¸®´Â ÇĞ½À¿ë ¹üÀ§¿¡ ¸Â°Ô ´Ü¼øÇÏ°Ô À¯ÁöÇß½À´Ï´Ù.
-
-- `syntax error`
-- `table not found`
-- `invalid column`
-- `insert failed`
-- `select failed`
-- `unknown command`
-
-¹ü¿ë DBMSÃ³·³ º¹ÀâÇÑ ¿¹¿Ü Ã¼°è´Â ÀÏºÎ·¯ ³ÖÁö ¾Ê¾Ò½À´Ï´Ù.
-
-## Extension Guide
-
-ÇöÀç ±¸Á¶´Â ÀÛÁö¸¸ ±â´É È®Àå Æ÷ÀÎÆ®°¡ ºĞ¸íÇÕ´Ï´Ù.
-
-### `WHERE`¸¦ Ãß°¡ÇÏ·Á¸é
-
-- `Query`¿¡ Á¶°Ç ÇÊµå Ãß°¡
-- `parser.c`¿¡¼­ `WHERE` ÆÄ½Ì Ãß°¡
-- `executor.c` ¶Ç´Â `storage.c`¿¡¼­ row ÇÊÅÍ¸µ Ãß°¡
-
-### `DELETE`¸¦ Ãß°¡ÇÏ·Á¸é
-
-- `QueryType`¿¡ `QUERY_DELETE` Ãß°¡
-- `parser.c`¿¡ delete ÆÄ½Ì Ãß°¡
-- `executor.c`¿¡ `execute_delete()` Ãß°¡
-- `storage.c`¿¡ rewrite ·ÎÁ÷ Ãß°¡
-
-### `UPDATE`¸¦ Ãß°¡ÇÏ·Á¸é
-
-- `QueryType`¿¡ `QUERY_UPDATE` Ãß°¡
-- `parser.c`¿¡ `SET` ÆÄ½Ì Ãß°¡
-- `storage.c`¿¡ row ¼öÁ¤ ÈÄ ÆÄÀÏ ÀçÀÛ¼º ·ÎÁ÷ Ãß°¡
-
-Áï, È®Àå Æ÷ÀÎÆ®´Â ÁÖ·Î `query.h`, `parser.c`, `executor.c`, `storage.c` ³× °÷ÀÔ´Ï´Ù. `main.c`´Â °ÅÀÇ ±×´ë·Î µÑ ¼ö ÀÖ½À´Ï´Ù.
-
-## Design Decisions
-
-### ¿Ö `main`¿¡¼­ Á÷Á¢ ºĞ±âÇÏÁö ¾Ê´Â°¡?
-
-Ã³À½ MVP¿¡¼­´Â `main`¿¡¼­ `INSERT/SELECT`¸¦ Á÷Á¢ ºĞ±âÇØµµ µ¿ÀÛÇÕ´Ï´Ù. ÇÏÁö¸¸ ±â´ÉÀÌ ´Ã¾î³ª¸é `main`ÀÌ ºü¸£°Ô ºñ´ëÇØÁı´Ï´Ù. ±×·¡¼­ ½ÇÇà ºĞ±â¸¦ `executor.c`·Î ºĞ¸®ÇØ `main`À» ÁøÀÔÁ¡À¸·Î¸¸ À¯ÁöÇß½À´Ï´Ù.
-
-### ¿Ö Á¤½Ä AST¸¦ ¾²Áö ¾Ê´Â°¡?
-
-ÇöÀç Áö¿ø SQLÀº `INSERT`¿Í `SELECT`»ÓÀÌ¶ó AST´Â °úÇÕ´Ï´Ù. `Query` ±¸Á¶Ã¼¸¸À¸·Îµµ ÃæºĞÈ÷ Ç¥Çö °¡´ÉÇÏ°í, ¿ÀÈ÷·Á ÃÊº¸ÀÚ°¡ Èå¸§À» µû¶ó°¡±â ½±½À´Ï´Ù.
-
-### ¿Ö schema ÆÄÀÏÀ» µÎ´Â°¡?
-
-`users` Å×ÀÌºí ÄÃ·³ ±¸Á¶¸¦ ÄÚµå¿¡ ¿ÏÀüÈ÷ ¹Ú¾Æ ³ÖÁö ¾Ê°í, `storage`°¡ ÀĞ°Ô ¸¸µé¾î `.schema users`¿Í Ç¥ Ãâ·Â¿¡¼­ °°Àº Á¤º¸¸¦ Àç»ç¿ëÇÒ ¼ö ÀÖ°Ô Çß½À´Ï´Ù.
-
-## Limitations
-
-ÇöÀç Á¦ÇÑÀº ÀÇµµµÈ °ÍÀÔ´Ï´Ù.
-
-- `users` Å×ÀÌºí¸¸ Áö¿ø
-- °íÁ¤ ÄÃ·³: `id`, `name`, `age`
-- ´ÙÁß Å×ÀÌºí ÀÏ¹İÈ­ ¾øÀ½
-- º¹ÀâÇÑ SQL ¹®¹ı ¹ÌÁö¿ø
-- °íÁ¤ ¹è¿­ ±â¹İ ±¸Çö
-- row ¼ö¿Í ÄÃ·³ ¼ö¿¡ »óÇÑ Á¸Àç
-
-## For Developers
-
-ÄÚµå¸¦ Ã³À½ ÀĞÀ» ¶§´Â ¾Æ·¡ ¼ø¼­°¡ °¡Àå ÀÌÇØÇÏ±â ½±½À´Ï´Ù.
-
-1. `main.c`
-2. `cli.c`
-3. `query.h`
-4. `parser.c`
-5. `executor.c`
-6. `storage.c`
-7. `display.c`
-
-ÀÌ ¼ø¼­·Î º¸¸é `ÀÔ·Â -> ÆÄ½Ì -> ½ÇÇà -> ÀúÀå/Ãâ·Â` Èå¸§ÀÌ ÀÚ¿¬½º·´°Ô ÀÌ¾îÁı´Ï´Ù.
+- ì €ì¥ íŒŒì¼ì€ `data/users.schema`, `data/users.data`ë¥¼ ì‚¬ìš©í•©ë‹ˆë‹¤.
+- `WHERE id = ?` ì™€ `WHERE id BETWEEN ? AND ?` ëŠ” B+ íŠ¸ë¦¬ ì¸ë±ìŠ¤ë¥¼ ì‚¬ìš©í•©ë‹ˆë‹¤.
+- `name`, `age` ì¡°ê±´ì€ ì„ í˜• íƒìƒ‰ìœ¼ë¡œ ì²˜ë¦¬í•©ë‹ˆë‹¤.
+- B+ íŠ¸ë¦¬ êµ¬í˜„ ì„¤ëª…ì€ [docs/bptree.md](/Users/hong-yoonki/Desktop/krafton/vscode/codexproj/week7_sql/team3-SQL-Indexer/docs/bptree.md)ì—ì„œ ë³¼ ìˆ˜ ìˆìŠµë‹ˆë‹¤.

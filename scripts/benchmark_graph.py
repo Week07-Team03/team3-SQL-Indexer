@@ -7,11 +7,13 @@ import subprocess
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parent
-BENCHMARK_BINARY = ROOT / "mini_sql"
-CSV_PATH = ROOT / "benchmark_results.csv"
-SVG_PATH = ROOT / "benchmark_results.svg"
-REPORT_PATH = ROOT / "benchmark_report.md"
+ROOT = Path(__file__).resolve().parent.parent
+BUILD_DIR = ROOT / "build"
+OUTPUT_DIR = BUILD_DIR / "benchmark"
+BENCHMARK_BINARY = BUILD_DIR / "mini_sql"
+CSV_PATH = OUTPUT_DIR / "benchmark_results.csv"
+SVG_PATH = OUTPUT_DIR / "benchmark_results.svg"
+REPORT_PATH = OUTPUT_DIR / "benchmark_report.md"
 LOOKUP_COUNT = 200
 RECORD_COUNTS = [1000, 10000, 100000, 500000, 1000000]
 
@@ -49,6 +51,7 @@ def run_benchmark(record_count: int) -> dict[str, float]:
 
 
 def write_csv(rows: list[dict[str, float]]) -> None:
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     with CSV_PATH.open("w", newline="", encoding="utf-8") as file:
         writer = csv.DictWriter(
             file,
@@ -94,6 +97,7 @@ def build_path(rows: list[dict[str, float]], key: str, min_x: float, max_x: floa
 
 
 def write_svg(rows: list[dict[str, float]]) -> None:
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     width = 1000
     height = 620
     left = 90.0
@@ -187,6 +191,7 @@ def write_svg(rows: list[dict[str, float]]) -> None:
 
 
 def write_report(rows: list[dict[str, float]]) -> None:
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     fastest = rows[-1]
     slowest = rows[0]
     lines = [
@@ -206,6 +211,7 @@ def write_report(rows: list[dict[str, float]]) -> None:
 
 
 def main() -> None:
+    subprocess.run(["make", str(BENCHMARK_BINARY)], cwd=ROOT, check=True)
     rows = [run_benchmark(record_count) for record_count in RECORD_COUNTS]
     write_csv(rows)
     write_svg(rows)

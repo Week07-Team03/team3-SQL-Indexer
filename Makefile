@@ -1,18 +1,42 @@
 CC = gcc
-CFLAGS = -std=c11 -Wall -Wextra -Werror -O2
+CFLAGS = -std=c11 -Wall -Wextra -Werror -O2 -Iinclude
 
-APP_SRCS = main.c cli.c parser.c executor.c storage.c display.c bptree.c
-TEST_SRCS = tests.c parser.c storage.c bptree.c
+BUILD_DIR = build
+APP_BIN = $(BUILD_DIR)/mini_sql
+TEST_BIN = $(BUILD_DIR)/mini_sql_tests
 
-all: mini_sql mini_sql_tests
+APP_SRCS = \
+	src/app/main.c \
+	src/app/cli.c \
+	src/core/parser.c \
+	src/core/executor.c \
+	src/core/display.c \
+	src/storage/storage.c \
+	src/storage/database.c \
+	src/storage/files.c \
+	src/storage/benchmark.c \
+	src/index/bptree.c
 
-mini_sql: $(APP_SRCS)
+TEST_SRCS = \
+	tests/tests.c \
+	src/core/parser.c \
+	src/storage/storage.c \
+	src/storage/database.c \
+	src/storage/files.c \
+	src/index/bptree.c
+
+all: $(APP_BIN) $(TEST_BIN)
+
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
+
+$(APP_BIN): $(APP_SRCS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -o $@ $(APP_SRCS)
 
-mini_sql_tests: $(TEST_SRCS)
+$(TEST_BIN): $(TEST_SRCS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -o $@ $(TEST_SRCS)
 
 clean:
-	rm -f mini_sql mini_sql_tests
+	rm -rf $(BUILD_DIR)
 
 .PHONY: all clean
