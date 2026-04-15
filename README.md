@@ -105,7 +105,7 @@ B+ Tree
 - `SELECT by name (linear scan)`: `4450.575 usec/query`
 - reported speedup: `445057.50x`
 
-발표 포인트:
+
 - 숫자 자체보다 **executor 이후 접근 경로가 full scan에서 index lookup으로 바뀌었다**는 점이 핵심입니다.
 - 현재 인덱스는 파일에 저장하지 않고, 프로그램 시작 시 `data/users.data`를 다시 읽어 메모리에서 재구성합니다.
 
@@ -130,7 +130,7 @@ B+ Tree
 - 파싱 실패 메시지
 - 대량 삽입 후 인덱스 높이 증가
 
-발표에서 강조할 수 있는 edge case:
+edge case:
 - 첫 삽입
 - 없는 ID 조회
 - 대량 삽입으로 인한 leaf split / root split
