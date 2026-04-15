@@ -133,6 +133,30 @@ static void test_database_index_and_linear_scan(void) {
     assert(result.rows[5]->id == 105);
     free_query_result(&result);
 
+    memset(&query, 0, sizeof(query));
+    query.type = QUERY_SELECT;
+    query.select_all = 1;
+    query.condition_type = CONDITION_ID_LT;
+    query.condition_int_value = 5;
+    assert(database_select_users(database, &query, &result));
+    assert(result.used_index == 1);
+    assert(result.row_count == 4);
+    assert(result.rows[0]->id == 1);
+    assert(result.rows[3]->id == 4);
+    free_query_result(&result);
+
+    memset(&query, 0, sizeof(query));
+    query.type = QUERY_SELECT;
+    query.select_all = 1;
+    query.condition_type = CONDITION_ID_LTE;
+    query.condition_int_value = 3;
+    assert(database_select_users(database, &query, &result));
+    assert(result.used_index == 1);
+    assert(result.row_count == 3);
+    assert(result.rows[0]->id == 1);
+    assert(result.rows[2]->id == 3);
+    free_query_result(&result);
+
     assert(database_next_id(database) == 257);
     assert(database_index_height(database) >= 2);
 
@@ -142,10 +166,22 @@ static void test_database_index_and_linear_scan(void) {
     query.condition_type = CONDITION_ID_GT;
     query.condition_int_value = 250;
     assert(database_select_users(database, &query, &result));
-    assert(result.used_index == 0);
+    assert(result.used_index == 1);
     assert(result.row_count == 6);
     assert(result.rows[0]->id == 251);
     assert(result.rows[5]->id == 256);
+    free_query_result(&result);
+
+    memset(&query, 0, sizeof(query));
+    query.type = QUERY_SELECT;
+    query.select_all = 1;
+    query.condition_type = CONDITION_ID_GTE;
+    query.condition_int_value = 253;
+    assert(database_select_users(database, &query, &result));
+    assert(result.used_index == 1);
+    assert(result.row_count == 4);
+    assert(result.rows[0]->id == 253);
+    assert(result.rows[3]->id == 256);
     free_query_result(&result);
 
     memset(&query, 0, sizeof(query));

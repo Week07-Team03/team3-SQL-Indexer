@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 #include "bptree.h"
 #include "storage_internal.h"
 
@@ -101,6 +102,30 @@ static int row_matches_condition(const UserRow *row, const Query *query) {
     }
 
     return 0;
+}
+
+/* id 범위 조건을 B+ 트리로 조회해 결과 버퍼에 추가한다. */
+static int append_index_range(const Database *database, QueryResult *result, int start_id, int end_id) {
+    int *row_indices = NULL;
+    size_t row_count = 0;
+    size_t i;
+
+    result->used_index = 1;
+    if (start_id > end_id) {
+        return 1;
+    }
+    if (!bptree_range_search(&database->primary_index, start_id, end_id, &row_indices, &row_count)) {
+        return 0;
+    }
+    for (i = 0; i < row_count; i++) {
+        if (!query_result_append(result, &database->rows[row_indices[i]])) {
+            free(row_indices);
+            free_query_result(result);
+            return 0;
+        }
+    }
+    free(row_indices);
+    return 1;
 }
 
 /* 초기화된 B+ 트리를 포함한 빈 메모리 데이터베이스를 생성한다. */
@@ -254,8 +279,7 @@ int database_load_from_file(Database *database, const char *data_path) {
 int database_select_users(const Database *database, const Query *query, QueryResult *result) {
     size_t i;
     int row_index;
-    int *row_indices = NULL;
-    size_t row_count = 0;
+    int start_id;
 
     if (database == NULL || query == NULL || result == NULL) {
         return 0;
@@ -272,23 +296,37 @@ int database_select_users(const Database *database, const Query *query, QueryRes
     }
 
     if (query->condition_type == CONDITION_ID_RANGE) {
-        result->used_index = 1;
-        if (!bptree_range_search(&database->primary_index,
-                                 query->condition_int_value,
-                                 query->condition_second_int_value,
-                                 &row_indices,
-                                 &row_count)) {
-            return 0;
+        return append_index_range(database,
+                                  result,
+                                  query->condition_int_value,
+                                  query->condition_second_int_value);
+    }
+
+    if (query->condition_type == CONDITION_ID_LT) {
+        if (query->condition_int_value <= 1) {
+            return append_index_range(database, result, 1, 0);
         }
-        for (i = 0; i < row_count; i++) {
-            if (!query_result_append(result, &database->rows[row_indices[i]])) {
-                free(row_indices);
-                free_query_result(result);
-                return 0;
-            }
+        return append_index_range(database, result, 1, query->condition_int_value - 1);
+    }
+
+    if (query->condition_type == CONDITION_ID_LTE) {
+        if (query->condition_int_value < 1) {
+            return append_index_range(database, result, 1, 0);
         }
-        free(row_indices);
-        return 1;
+        return append_index_range(database, result, 1, query->condition_int_value);
+    }
+
+    if (query->condition_type == CONDITION_ID_GT) {
+        if (query->condition_int_value == INT_MAX) {
+            return append_index_range(database, result, 1, 0);
+        }
+        start_id = query->condition_int_value < 1 ? 1 : query->condition_int_value + 1;
+        return append_index_range(database, result, start_id, INT_MAX);
+    }
+
+    if (query->condition_type == CONDITION_ID_GTE) {
+        start_id = query->condition_int_value <= 1 ? 1 : query->condition_int_value;
+        return append_index_range(database, result, start_id, INT_MAX);
     }
 
     for (i = 0; i < database->row_count; i++) {
