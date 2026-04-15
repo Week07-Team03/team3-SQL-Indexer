@@ -147,14 +147,16 @@ edge case:
 - 현재는 `users` 단일 테이블만 지원합니다.
 - B+ 트리는 메모리 기반 구현이며, 영속화되는 것은 row 데이터뿐입니다.
 
-## 10. 데모 순서
+## 10. 데모 REPL
 ```sql
-INSERT INTO users VALUES ('alice', 23);
-INSERT INTO users VALUES ('bob', 30);
-SELECT * FROM users WHERE id = 1;
-SELECT * FROM users WHERE id BETWEEN 1 AND 2;
-SELECT * FROM users WHERE name = 'alice';
-.stats
+./build/mini_sql
+SELECT * FROM users WHERE id = 2;
+SELECT * FROM users WHERE id BETWEEN 1 AND 3;
+SELECT * FROM users WHERE id >= 2 AND age < 30;
+SELECT * FROM users WHERE id = 2 OR id = 5;
+SELECT * FROM users WHERE name = 'user099934'; 
+.stats 
+.exit
 ```
 
 ## 11. 빌드 및 실행
