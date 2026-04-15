@@ -30,78 +30,20 @@ SQL은 사용자가 데이터를 질의하는 언어이고, 인덱스는 그 질
 즉 이 프로젝트에서 B+ 트리를 선택한 이유는 **`id` 기준 단건 조회와 범위 조회를 모두 효율적으로 처리하기 위해서**입니다.
 
 ## 4. 기존 실행기와의 접합 구조
-이 프로젝트의 핵심은 B+ 트리를 따로 만든 것이 아니라, **기존 SQL 실행 경로에 인덱스를 접합한 것**입니다.
+이 프로젝트의 핵심은 B+ 트리를 따로 만든 것이 아니라, **기존 SQL 실행 경로에 인덱스 분기점을 추가한 것**입니다.
+
+| 구분 | 기존 실행기 | 이번에 접합한 인덱스 경로 |
+|---|---|---|
+| 공통 흐름 | `SQL statement -> Parser -> Query -> Executor` | 동일 |
+| `INSERT` | row만 저장 | auto-increment id 발급 후 `bptree_insert(id, row_index)` |
+| `SELECT` | 조건과 관계없이 full scan | `id =, <, <=, >, >=, BETWEEN`, `id`가 포함된 `AND`는 B+ Tree 사용 |
+| 복합 조건 | full scan | `AND`는 먼저 인덱스로 후보 축소 후 후처리, `OR`는 full scan |
+
+발표용으로 한 줄만 보면:
 
 ```text
-SQL statement
-  -> Parser
-  -> Query
-  -> Executor
-       -> INSERT
-            -> Storage
-            -> row 저장
-            -> auto-increment id 발급
-            -> bptree_insert(id, row_index)
-
-       -> SELECT
-            -> Storage
-            -> if ID predicate
-                 -> bptree_search / bptree_range_search
-                 -> row_index 획득
-                 -> rows[row_index] 접근
-             -> else
-                 -> full table scan
-```
-
-실행 라이프사이클:
-
-```mermaid
-sequenceDiagram
-    actor User
-    participant CLI
-    participant Parser
-    participant Executor
-    participant Storage
-    participant Database
-    participant BPTree
-    participant Display
-
-    User->>CLI: SQL statement
-    CLI->>Parser: parse_query(statement)
-
-    alt parse error
-        Parser-->>CLI: error message
-        CLI-->>User: print error
-    else INSERT
-        Parser-->>CLI: Query(INSERT)
-        CLI->>Executor: execute_query(query)
-        Executor->>Storage: append_user(query)
-        Storage->>Database: database_append_user(...)
-        Database->>BPTree: bptree_search(id)
-        BPTree-->>Database: duplicate 여부
-        Database->>BPTree: bptree_insert(id, row_index)
-        BPTree-->>Database: inserted
-        Database-->>Storage: assigned_id
-        Storage-->>Executor: success
-        Executor-->>CLI: inserted(id)
-        CLI-->>User: print result
-    else SELECT
-        Parser-->>CLI: Query(SELECT)
-        CLI->>Executor: execute_query(query)
-        Executor->>Storage: select_users(query)
-        Storage->>Database: database_select_users(...)
-        alt ID predicate
-            Database->>BPTree: search / range_search
-            BPTree-->>Database: row_index or row_index list
-        else non-indexed predicate
-            Database->>Database: full scan rows
-        end
-        Database-->>Storage: QueryResult
-        Storage-->>Executor: QueryResult
-        Executor->>Display: print_select_result(...)
-        Display-->>CLI: formatted output
-        CLI-->>User: print table
-    end
+기존: SQL -> Parser -> Executor -> Full Scan
+현재: SQL -> Parser -> Executor -> [ID 조건이면 B+ Tree, 아니면 Full Scan]
 ```
 
 영속 자원:
@@ -111,7 +53,7 @@ sequenceDiagram
 참고:
 - 인덱스는 파일에 직접 저장하지 않습니다.
 - 프로그램 시작 시 `data/users.data`를 다시 읽어 메모리에서 B+ 트리를 재구성합니다.
-- 이번 프로젝트에서 새로 추가된 핵심 분기는 `SELECT` 경로에서 **ID 조건이면 B+ 트리를 타고, 아니면 기존 full scan 경로로 가는 부분**입니다.
+- 이번 프로젝트에서 새로 추가된 핵심 분기는 `SELECT` 경로에서 **ID 조건이면 B+ Tree를 타고, 아니면 기존 full scan 경로로 가는 부분**입니다.
 
 ## 5. B+ Tree 핵심 구조
 이 프로젝트의 B+ 트리는 다음 구조를 가집니다.
@@ -119,6 +61,7 @@ sequenceDiagram
 - 내부 노드: separator key와 child pointer를 가짐
 - 리프 노드: 실제 key와 `row_index`, 그리고 다음 리프를 가리키는 `next` 포인터를 가짐
 - 노드가 가득 차면 split하고, 부모도 가득 차 있으면 root split으로 트리 높이가 증가함
+- 현재 구현은 `BPTREE_ORDER = 32`이므로 한 노드의 최대 key 수는 `31`개이며, `32`번째 key가 들어오면 split이 발생함
 
 중요한 점:
 
@@ -140,12 +83,9 @@ B+ Tree
 
 ## 6. 질의 처리 경로
 인덱스 사용 경로:
-- `WHERE id = ?`
-- `WHERE id < ?`
-- `WHERE id <= ?`
-- `WHERE id > ?`
-- `WHERE id >= ?`
+- `WHERE id = ?`, `<`, `<=`, `>`, `>=`
 - `WHERE id BETWEEN ? AND ?`
+- `id`가 포함된 `AND` 조건
 
 비인덱스 경로:
 - `name`, `age` 조건
@@ -165,6 +105,10 @@ B+ Tree
 - `SELECT by id (B+ tree)`: `0.01 usec/query`
 - `SELECT by name (linear scan)`: `4450.575 usec/query`
 - reported speedup: `445057.50x`
+
+발표 포인트:
+- 숫자 자체보다 **executor 이후 접근 경로가 full scan에서 index lookup으로 바뀌었다**는 점이 핵심입니다.
+- 현재 인덱스는 파일에 저장하지 않고, 프로그램 시작 시 `data/users.data`를 다시 읽어 메모리에서 재구성합니다.
 
 결과 파일:
 - [docs/benchmark/benchmark_report.md](docs/benchmark/benchmark_report.md)
