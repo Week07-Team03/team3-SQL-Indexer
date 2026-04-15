@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -std=c11 -Wall -Wextra -Werror -O2 -Iinclude
+CFLAGS = -std=c11 -Wall -Wextra -Werror -O2 -D_POSIX_C_SOURCE=200809L -Iinclude
 
 BUILD_DIR = build
 APP_BIN = $(BUILD_DIR)/mini_sql

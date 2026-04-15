@@ -395,9 +395,9 @@ int database_load_from_file(Database *database, const char *data_path) {
 /* 조건에 따라 인덱스를 활용해 SELECT 조회를 수행한다. */
 int database_select_users(const Database *database, const Query *query, QueryResult *result) {
     size_t i;
-    QueryCondition index_condition;
-    int start_id;
-    int end_id;
+    QueryCondition index_condition = {0};
+    int start_id = 0;
+    int end_id = 0;
 
     if (database == NULL || query == NULL || result == NULL) {
         return 0;
