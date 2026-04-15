@@ -2,7 +2,7 @@
 #include <string.h>
 #include "display.h"
 
-/* This finds a schema column index so SELECT can map names to stored values. */
+/* 컬럼 이름을 스키마 인덱스로 변환한다. */
 static int find_column_index(const TableSchema *schema, const char *name) {
     int i;
 
@@ -14,7 +14,7 @@ static int find_column_index(const TableSchema *schema, const char *name) {
     return -1;
 }
 
-/* This chooses which columns the current SELECT should print. */
+/* SELECT 결과에 출력할 컬럼 인덱스 목록을 구성한다. */
 static int build_selected_indices(const Query *query, const TableSchema *schema, int indices[3], int *count) {
     int i;
 
@@ -36,7 +36,7 @@ static int build_selected_indices(const Query *query, const TableSchema *schema,
     return 1;
 }
 
-/* This prints a border so the result looks like a small SQL table. */
+/* ASCII 테이블 출력용 가로 경계를 그린다. */
 static void print_border(const int widths[3], int count) {
     int i;
     int j;
@@ -50,7 +50,7 @@ static void print_border(const int widths[3], int count) {
     puts("+");
 }
 
-/* This prints one table row using the prepared column widths. */
+/* 계산된 컬럼 너비에 맞춰 한 줄을 출력한다. */
 static void print_row(char values[3][32], const int widths[3], int count) {
     int i;
 
@@ -60,48 +60,58 @@ static void print_row(char values[3][32], const int widths[3], int count) {
     puts("|");
 }
 
-/* This prints SELECT output because executor should not know display details. */
-int print_select_result(const Query *query, const TableSchema *schema, const TableData *data) {
+/* 요청한 컬럼에 맞는 행 데이터를 출력 문자열로 변환한다. */
+static void get_cell_value(const UserRow *row, int column_index, char buffer[32]) {
+    if (column_index == 0) {
+        snprintf(buffer, 32, "%d", row->id);
+    } else if (column_index == 1) {
+        snprintf(buffer, 32, "%s", row->name);
+    } else {
+        snprintf(buffer, 32, "%d", row->age);
+    }
+}
+
+/* SELECT 결과를 형식화된 테이블로 출력한다. */
+int print_select_result(const Query *query, const TableSchema *schema, const QueryResult *result) {
     int indices[3];
     int widths[3] = {0, 0, 0};
     char cells[3][32];
     int count;
-    int row;
+    size_t row;
     int col;
     int len;
 
-    /* 1. Decide which columns to show */
     if (!build_selected_indices(query, schema, indices, &count)) {
         printf("invalid column\n");
         return 0;
     }
 
-    /* 2. Compute simple column widths */
     for (col = 0; col < count; col++) {
         widths[col] = (int)strlen(schema->names[indices[col]]);
     }
-    for (row = 0; row < data->row_count; row++) {
+    for (row = 0; row < result->row_count; row++) {
         for (col = 0; col < count; col++) {
-            len = (int)strlen(data->values[row][indices[col]]);
+            get_cell_value(result->rows[row], indices[col], cells[col]);
+            len = (int)strlen(cells[col]);
             if (len > widths[col]) {
                 widths[col] = len;
             }
         }
     }
 
-    /* 3. Print header and rows */
     print_border(widths, count);
     for (col = 0; col < count; col++) {
-        strcpy(cells[col], schema->names[indices[col]]);
+        snprintf(cells[col], sizeof(cells[col]), "%s", schema->names[indices[col]]);
     }
     print_row(cells, widths, count);
     print_border(widths, count);
-    for (row = 0; row < data->row_count; row++) {
+    for (row = 0; row < result->row_count; row++) {
         for (col = 0; col < count; col++) {
-            strcpy(cells[col], data->values[row][indices[col]]);
+            get_cell_value(result->rows[row], indices[col], cells[col]);
         }
         print_row(cells, widths, count);
     }
     print_border(widths, count);
+    printf("%zu row(s)\n", result->row_count);
     return 1;
 }
